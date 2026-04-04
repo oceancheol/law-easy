@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;600;700;900&family=Pretendard:wght@300;400;500;600;700&display=swap');
 
 :root {
   --background: #F5F0EB;
@@ -30,11 +29,11 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Noto Serif KR', serif;
+  font-family: var(--font-serif), serif;
 }
 
 .highlight-added {
@@ -50,9 +49,15 @@ h1, h2, h3, h4, h5, h6 {
   text-decoration: line-through;
 }
 
+.highlight-modified {
+  background-color: rgba(243, 156, 18, 0.2);
+  border-left: 3px solid var(--accent-yellow);
+  padding-left: 8px;
+}
+
 /* Print styles */
 @media print {
-  header, footer, .print\\:hidden {
+  header, footer, .print\:hidden {
     display: none !important;
   }
   body {
@@ -70,10 +75,4 @@ h1, h2, h3, h4, h5, h6 {
   @page {
     margin: 2cm;
   }
-}
-
-.highlight-modified {
-  background-color: rgba(243, 156, 18, 0.2);
-  border-left: 3px solid var(--accent-yellow);
-  padding-left: 8px;
 }

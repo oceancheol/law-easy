@@ -1,6 +1,6 @@
 import type { SearchResponse, LawSearchResult, LawDetail, SearchParams } from "@/types/law";
 import type { PrecedentSearchResult, PrecedentDetail, PrecedentSearchParams } from "@/types/precedent";
-import type { AmendmentHistory, CompareResult } from "@/types/compare";
+import type { AmendmentHistory, CompareResult, ArticleChange } from "@/types/compare";
 
 const LAW_API_BASE = "https://www.law.go.kr/DRF";
 const API_KEY = process.env.LAW_API_KEY || "";
@@ -111,7 +111,8 @@ export async function getPrecedentDetail(precId: string): Promise<PrecedentDetai
 
 export async function getAmendmentHistory(lawId: string): Promise<AmendmentHistory | null> {
   try {
-    const url = buildUrl("lawHistSearch.do", { target: "law", ID: lawId });
+    // lawService.do에서 부칙 정보로 개정 이력 추출
+    const url = buildUrl("lawService.do", { target: "law", MST: lawId });
     const data = await fetchApi<Record<string, unknown>>(url);
     return extractAmendmentHistory(data);
   } catch {
@@ -168,20 +169,39 @@ function extractLawResults(data: Record<string, unknown>): LawSearchResult[] {
   }));
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 function extractLawDetail(data: Record<string, unknown>): LawDetail {
-  const root = data as Record<string, Record<string, unknown>>;
-  const info = root?.law || root?.Law || {};
+  const law = (data as any)?.법령 || {};
+  const basic = law?.기본정보 || {};
+  const ministry = basic?.소관부처 || {};
+  const lawType = basic?.법종구분 || {};
+  const articles = law?.조문?.조문단위 || [];
+
+  const articleList = toArray(articles as Record<string, any>[]).map((a) => ({
+    number: String(a.조문번호 || ""),
+    title: String(a.조문제목 || ""),
+    content: String(a.조문내용 || ""),
+    paragraphs: toArray(a.항 as Record<string, string>[]).map((p) => ({
+      number: String(p.항번호 || ""),
+      content: String(p.항내용 || ""),
+    })),
+  }));
+
   return {
-    id: String(info.법령일련번호 || info.lawId || ""),
-    lawName: String(info.법령명한글 || info.법령명 || ""),
-    lawType: (String(info.법령종류 || "법률")) as LawDetail["lawType"],
-    ministry: String(info.소관부처명 || info.소관부처 || ""),
-    lawId: String(info.법령일련번호 || info.lawId || ""),
-    promulgationDate: String(info.공포일자 || ""),
-    enforcementDate: String(info.시행일자 || ""),
-    chapters: [],
+    id: String(law.법령키 || ""),
+    lawName: String(basic.법령명_한글 || ""),
+    lawType: mapLawType(String(lawType?.content || "")),
+    ministry: String(ministry?.content || ""),
+    lawId: String(law.법령키 || ""),
+    promulgationDate: String(basic.공포일자 || ""),
+    enforcementDate: String(basic.시행일자 || ""),
+    chapters: [{
+      title: "조문",
+      articles: articleList,
+    }],
   };
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 function extractPrecedentResults(data: Record<string, unknown>): PrecedentSearchResult[] {
   const root = data as Record<string, Record<string, unknown>>;
@@ -213,29 +233,48 @@ function extractPrecedentDetail(data: Record<string, unknown>): PrecedentDetail 
   };
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 function extractAmendmentHistory(data: Record<string, unknown>): AmendmentHistory {
-  const root = data as Record<string, Record<string, unknown>>;
-  const items = root?.LawHistSearch?.law;
+  const law = (data as any)?.법령 || {};
+  const basic = law?.기본정보 || {};
+  const appendix = law?.부칙?.부칙단위 || [];
+
   return {
-    lawName: "",
-    lawId: "",
-    amendments: toArray(items as Record<string, string>[]).map((item) => ({
-      date: item.공포일자 || "",
-      lawNumber: item.법령번호 || "",
-      type: item.제개정구분명 || "",
-      description: item.법령명한글 || "",
+    lawName: String(basic.법령명_한글 || ""),
+    lawId: String(law.법령키 || ""),
+    amendments: toArray(appendix as Record<string, any>[]).map((item) => ({
+      date: String(item.부칙공포일자 || ""),
+      lawNumber: String(item.부칙공포번호 || ""),
+      type: "개정",
+      description: `${basic.법령명_한글 || ""} (${item.부칙공포일자 || ""})`,
     })),
   };
 }
 
 function extractCompareResult(data: Record<string, unknown>): CompareResult {
-  const root = data as Record<string, Record<string, unknown>>;
-  const info = root?.law || root?.Law || {};
+  const law = (data as any)?.법령 || {};
+  const basic = law?.기본정보 || {};
+  const articles = law?.조문?.조문단위 || [];
+
+  const changes: ArticleChange[] = toArray(articles as Record<string, any>[])
+    .filter((a: any) => a.조문변경여부 === "변경")
+    .map((a: any) => ({
+      articleNumber: String(a.조문번호 || ""),
+      articleTitle: String(a.조문제목 || ""),
+      changeType: "modified" as const,
+      oldContent: "",
+      newContent: String(a.조문내용 || ""),
+    }));
+
   return {
-    lawName: String(info.법령명한글 || info.법령명 || ""),
-    lawId: String(info.법령일련번호 || ""),
+    lawName: String(basic.법령명_한글 || ""),
+    lawId: String(law.법령키 || ""),
     oldVersion: { date: "", lawNumber: "" },
-    newVersion: { date: String(info.공포일자 || ""), lawNumber: String(info.법령번호 || "") },
-    changes: [],
+    newVersion: {
+      date: String(basic.공포일자 || ""),
+      lawNumber: String(basic.공포번호 || ""),
+    },
+    changes,
   };
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */

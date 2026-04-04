@@ -136,7 +136,12 @@ export async function compareLawVersions(
 // --- Helpers ---
 
 function stripHtml(text: string): string {
-  return text.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]*>/g, "").trim();
+  return text
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")
+    .trim();
 }
 
 // --- Data extractors ---
@@ -284,13 +289,19 @@ function extractCompareResult(data: Record<string, unknown>): CompareResult {
 
   const changes: ArticleChange[] = toArray(articles as Record<string, any>[])
     .filter((a: any) => a.조문변경여부 === "Y")
-    .map((a: any) => ({
-      articleNumber: String(a.조문번호 || ""),
-      articleTitle: String(a.조문제목 || ""),
-      changeType: "modified" as const,
-      oldContent: "",
-      newContent: String(a.조문내용 || ""),
-    }));
+    .map((a: any) => {
+      const paragraphs = toArray(a.항 as Record<string, any>[]);
+      const fullContent = paragraphs.length > 0
+        ? paragraphs.map((p: any) => String(p.항내용 || "")).join("\n")
+        : String(a.조문내용 || "");
+      return {
+        articleNumber: String(a.조문번호 || ""),
+        articleTitle: String(a.조문제목 || ""),
+        changeType: "modified" as const,
+        oldContent: "",
+        newContent: stripHtml(fullContent),
+      };
+    });
 
   return {
     lawName: String(basic.법령명_한글 || ""),

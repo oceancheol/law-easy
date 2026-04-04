@@ -1,0 +1,57 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;600;700;900&family=Pretendard:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --background: #F5F0EB;
+  --foreground: #3E2C1E;
+  --text-muted: #6B7B8D;
+  --primary: #2B4C7E;
+  --primary-hover: #1A3A5C;
+  --accent-red: #C0392B;
+  --accent-green: #27AE60;
+  --accent-yellow: #F39C12;
+  --card-bg: #FFFFFF;
+  --border: #D5CFC7;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--text-muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-accent-red: var(--accent-red);
+  --color-accent-green: var(--accent-green);
+  --color-accent-yellow: var(--accent-yellow);
+  --color-card: var(--card-bg);
+  --color-border: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Noto Serif KR', serif;
+}
+
+.highlight-added {
+  background-color: rgba(39, 174, 96, 0.2);
+  border-left: 3px solid var(--accent-green);
+  padding-left: 8px;
+}
+
+.highlight-removed {
+  background-color: rgba(192, 57, 43, 0.2);
+  border-left: 3px solid var(--accent-red);
+  padding-left: 8px;
+  text-decoration: line-through;
+}
+
+.highlight-modified {
+  background-color: rgba(243, 156, 18, 0.2);
+  border-left: 3px solid var(--accent-yellow);
+  padding-left: 8px;
+}

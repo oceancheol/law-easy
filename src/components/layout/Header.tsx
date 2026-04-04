@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/search", label: "법령 검색" },
   { href: "/precedent", label: "판례 검색" },
   { href: "/compare", label: "신구대조" },
+  { href: "/glossary", label: "용어사전" },
 ];
 
 export default function Header() {

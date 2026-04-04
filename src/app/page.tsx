@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import SearchBar from "@/components/ui/SearchBar";
+import Autocomplete from "@/components/ui/Autocomplete";
+import { useSearchHistory, useRecentLaws } from "@/hooks/useSearchHistory";
+import { formatDate } from "@/lib/utils/format";
 
 const POPULAR_KEYWORDS = [
   "근로기준법",
@@ -33,16 +35,32 @@ const FEATURES = [
     description: "법령 개정 전후를 나란히 비교하고 변경점을 확인",
     href: "/compare",
   },
+  {
+    icon: "🗺️",
+    title: "법령 관계도",
+    description: "법률→시행령→시행규칙 계층 구조를 한눈에 파악",
+    href: "/search",
+  },
+  {
+    icon: "📖",
+    title: "법률 용어 사전",
+    description: "어려운 법률 용어를 쉬운 말로 풀어서 설명",
+    href: "/glossary",
+  },
 ];
 
 export default function HomePage() {
   const router = useRouter();
+  const { history, addHistory } = useSearchHistory();
+  const { recentLaws } = useRecentLaws();
 
   function handleSearch(query: string) {
+    addHistory(query);
     router.push(`/search?q=${encodeURIComponent(query)}`);
   }
 
   function handleKeywordClick(keyword: string) {
+    addHistory(keyword);
     router.push(`/search?q=${encodeURIComponent(keyword)}`);
   }
 
@@ -64,7 +82,11 @@ export default function HomePage() {
           </p>
 
           <div className="max-w-2xl mx-auto mb-8">
-            <SearchBar onSearch={handleSearch} size="large" />
+            <Autocomplete
+              onSearch={handleSearch}
+              searchHistory={history}
+              size="large"
+            />
           </div>
 
           <div className="flex flex-wrap justify-center gap-2">
@@ -81,6 +103,32 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Recent Laws */}
+      {recentLaws.length > 0 && (
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <h2
+            className="text-lg font-bold text-[var(--foreground)] mb-4"
+            style={{ fontFamily: "'Noto Serif KR', serif" }}
+          >
+            🕐 최근 본 법령
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            {recentLaws.map((law) => (
+              <a
+                key={law.id}
+                href={`/law/${law.id}`}
+                className="px-4 py-2 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+              >
+                <span className="font-medium text-[var(--foreground)]">{law.name}</span>
+                <span className="text-xs text-[var(--text-muted)] ml-2">
+                  {formatDate(law.visitedAt.split("T")[0].replace(/-/g, ""))}
+                </span>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Features Section */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <h2
@@ -89,10 +137,10 @@ export default function HomePage() {
         >
           주요 서비스
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {FEATURES.map((feature) => (
             <a
-              key={feature.href}
+              key={feature.title}
               href={feature.href}
               className="group bg-[var(--card-bg)] rounded-xl border border-[var(--border)] p-8 shadow-sm hover:shadow-md hover:border-[var(--primary)] transition-all text-center"
             >

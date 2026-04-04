@@ -5,22 +5,35 @@ import { useState, useEffect } from "react";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Loading from "@/components/ui/Loading";
+import PrintButton from "@/components/ui/PrintButton";
+import LawRelationMap from "@/components/law/LawRelationMap";
+import { useRecentLaws } from "@/hooks/useSearchHistory";
 import { formatDate } from "@/lib/utils/format";
 import type { LawDetail } from "@/types/law";
 
 export default function LawDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const { addRecentLaw } = useRecentLaws();
   const [law, setLaw] = useState<LawDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch(`/api/search/detail?id=${id}`)
       .then((res) => res.json())
-      .then((data: { data: LawDetail }) => setLaw(data.data || null))
+      .then((data: { data: LawDetail }) => {
+        setLaw(data.data || null);
+        if (data.data) {
+          addRecentLaw({
+            id: data.data.lawId || data.data.id,
+            name: data.data.lawName,
+            type: data.data.lawType,
+          });
+        }
+      })
       .catch(() => setLaw(null))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, addRecentLaw]);
 
   if (loading) return <Loading text="법령 정보 로딩 중..." />;
 
@@ -69,8 +82,13 @@ export default function LawDetailPage() {
           >
             🔍 신구대조 비교
           </a>
+          <PrintButton />
         </div>
       </Card>
+
+      <LawRelationMap lawName={law.lawName} lawId={law.lawId || law.id} />
+
+      <div className="mt-6" />
 
       {law.chapters.length > 0 ? (
         <div className="space-y-4">

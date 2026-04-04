@@ -2,11 +2,12 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
-import SearchBar from "@/components/ui/SearchBar";
+import Autocomplete from "@/components/ui/Autocomplete";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Loading from "@/components/ui/Loading";
 import Pagination from "@/components/ui/Pagination";
+import { useSearchHistory } from "@/hooks/useSearchHistory";
 import { formatDate, truncate } from "@/lib/utils/format";
 import type { LawSearchResult } from "@/types/law";
 
@@ -21,6 +22,7 @@ function SearchContent() {
   const query = searchParams.get("q") || "";
   const page = Number(searchParams.get("page") || "1");
 
+  const { history, addHistory } = useSearchHistory();
   const [results, setResults] = useState<LawSearchResult[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -39,6 +41,7 @@ function SearchContent() {
   }, [query, page]);
 
   function handleSearch(newQuery: string) {
+    addHistory(newQuery);
     router.push(`/search?q=${encodeURIComponent(newQuery)}`);
   }
 
@@ -49,7 +52,7 @@ function SearchContent() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
-        <SearchBar onSearch={handleSearch} defaultValue={query} />
+        <Autocomplete onSearch={handleSearch} defaultValue={query} searchHistory={history} />
       </div>
 
       {query && (

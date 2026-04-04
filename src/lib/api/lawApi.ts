@@ -32,6 +32,7 @@ async function fetchApi<T>(url: string): Promise<T> {
 export async function searchLaws(params: SearchParams): Promise<SearchResponse<LawSearchResult>> {
   try {
     const url = buildUrl("lawSearch.do", {
+      target: "law",
       query: params.query,
       display: params.size || 20,
       page: params.page || 1,
@@ -59,7 +60,7 @@ export async function searchLaws(params: SearchParams): Promise<SearchResponse<L
 
 export async function getLawDetail(lawId: string): Promise<LawDetail | null> {
   try {
-    const url = buildUrl("lawService.do", { ID: lawId });
+    const url = buildUrl("lawService.do", { target: "law", MST: lawId });
     const data = await fetchApi<Record<string, unknown>>(url);
     return extractLawDetail(data);
   } catch {
@@ -72,6 +73,7 @@ export async function searchPrecedents(
 ): Promise<SearchResponse<PrecedentSearchResult>> {
   try {
     const url = buildUrl("precSearch.do", {
+      target: "prec",
       query: params.query,
       display: params.size || 20,
       page: params.page || 1,
@@ -99,7 +101,7 @@ export async function searchPrecedents(
 
 export async function getPrecedentDetail(precId: string): Promise<PrecedentDetail | null> {
   try {
-    const url = buildUrl("precService.do", { ID: precId });
+    const url = buildUrl("precService.do", { target: "prec", ID: precId });
     const data = await fetchApi<Record<string, unknown>>(url);
     return extractPrecedentDetail(data);
   } catch {
@@ -109,7 +111,7 @@ export async function getPrecedentDetail(precId: string): Promise<PrecedentDetai
 
 export async function getAmendmentHistory(lawId: string): Promise<AmendmentHistory | null> {
   try {
-    const url = buildUrl("lawHistSearch.do", { ID: lawId });
+    const url = buildUrl("lawHistSearch.do", { target: "law", ID: lawId });
     const data = await fetchApi<Record<string, unknown>>(url);
     return extractAmendmentHistory(data);
   } catch {
@@ -122,7 +124,7 @@ export async function compareLawVersions(
   _date: string
 ): Promise<CompareResult | null> {
   try {
-    const url = buildUrl("lawService.do", { ID: lawId });
+    const url = buildUrl("lawService.do", { target: "law", MST: lawId });
     const data = await fetchApi<Record<string, unknown>>(url);
     return extractCompareResult(data);
   } catch {
@@ -144,15 +146,22 @@ function toArray<T>(value: T | T[] | undefined | null): T[] {
   return Array.isArray(value) ? value : [value];
 }
 
+function mapLawType(raw: string): LawSearchResult["lawType"] {
+  if (raw === "법률") return "법률";
+  if (raw === "대통령령" || raw.includes("시행령")) return "시행령";
+  if (raw.includes("부령") || raw.includes("규칙")) return "시행규칙";
+  return "기타";
+}
+
 function extractLawResults(data: Record<string, unknown>): LawSearchResult[] {
   const root = data as Record<string, Record<string, unknown>>;
   const items = root?.LawSearch?.law;
   return toArray(items as Record<string, string>[]).map((item, index) => ({
-    id: item.법령일련번호 || item.lawId || String(index),
-    lawName: item.법령명한글 || item.법령명 || "",
-    lawType: (item.법령종류 as LawSearchResult["lawType"]) || "법률",
-    ministry: item.소관부처명 || item.소관부처 || "",
-    lawId: item.법령일련번호 || item.lawId || "",
+    id: item.법령일련번호 || String(index),
+    lawName: item.법령명한글 || "",
+    lawType: mapLawType(item.법령구분명 || ""),
+    ministry: item.소관부처명 || "",
+    lawId: item.법령일련번호 || "",
     promulgationDate: item.공포일자 || "",
     enforcementDate: item.시행일자 || "",
     summary: item.법령약칭명 || "",

@@ -133,6 +133,12 @@ export async function compareLawVersions(
   }
 }
 
+// --- Helpers ---
+
+function stripHtml(text: string): string {
+  return text.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]*>/g, "").trim();
+}
+
 // --- Data extractors ---
 
 function extractTotal(data: Record<string, unknown>): number {
@@ -219,17 +225,17 @@ function extractPrecedentResults(data: Record<string, unknown>): PrecedentSearch
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function extractPrecedentDetail(data: Record<string, unknown>): PrecedentDetail {
-  const prec = (data as any)?.판례 || (data as any)?.prec || (data as any)?.Prec || {};
+  const prec = (data as any)?.PrecService || (data as any)?.판례 || (data as any)?.prec || {};
   const basic = prec?.기본정보 || prec;
   return {
-    id: String(basic.판례일련번호 || prec.판례일련번호 || ""),
-    caseNumber: String(basic.사건번호 || prec.사건번호 || ""),
-    caseName: String(basic.사건명 || prec.사건명 || ""),
-    court: (String(basic.법원명 || prec.법원명 || "대법원")) as PrecedentDetail["court"],
-    judgmentDate: String(basic.선고일자 || prec.선고일자 || ""),
-    caseType: String(basic.사건종류명 || prec.사건종류명 || ""),
-    summary: String(basic.요지 || prec.요지 || prec.판시사항 || ""),
-    fullText: String(basic.판례내용 || prec.판례내용 || prec.이유 || ""),
+    id: String(basic.판례정보일련번호 || basic.판례일련번호 || ""),
+    caseNumber: String(basic.사건번호 || ""),
+    caseName: String(basic.사건명 || ""),
+    court: (String(basic.법원명 || "대법원")) as PrecedentDetail["court"],
+    judgmentDate: String(basic.선고일자 || ""),
+    caseType: String(basic.사건종류명 || ""),
+    summary: stripHtml(String(basic.판결요지 || basic.판시사항 || basic.요지 || "")),
+    fullText: stripHtml(String(basic.판례내용 || "")),
     relatedLaws: [],
   };
 }

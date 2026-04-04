@@ -51,7 +51,7 @@ export default function LawDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <a href="/search" className="text-sm text-[var(--primary)] mb-6 inline-block">
+      <a href="/search" className="text-sm text-[var(--primary)] mb-6 inline-block print-hide">
         ← 검색 결과로 돌아가기
       </a>
 
@@ -75,7 +75,7 @@ export default function LawDetailPage() {
             <span>공포일: {formatDate(law.promulgationDate)}</span>
           )}
         </div>
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex gap-2 print-hide">
           <a
             href={`/compare?lawId=${law.lawId || law.id}`}
             className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors"
@@ -86,57 +86,60 @@ export default function LawDetailPage() {
         </div>
       </Card>
 
-      <LawRelationMap lawName={law.lawName} lawId={law.lawId || law.id} />
+      <div className="print-hide">
+        <LawRelationMap lawName={law.lawName} lawId={law.lawId || law.id} />
+        <div className="mt-6" />
+      </div>
 
-      <div className="mt-6" />
-
-      {law.chapters.length > 0 ? (
-        <div className="space-y-4">
-          {law.chapters.map((chapter, ci) => (
-            <Card key={ci}>
-              <h2
-                className="text-lg font-semibold text-[var(--foreground)] mb-3"
-                style={{ fontFamily: "'Noto Serif KR', serif" }}
-              >
-                {chapter.title}
-              </h2>
-              <div className="space-y-3">
-                {chapter.articles.map((article, ai) => (
-                  <details key={ai} className="group">
-                    <summary className="cursor-pointer text-[var(--primary)] font-medium hover:underline">
-                      {article.number} {article.title}
-                    </summary>
-                    <div className="mt-2 pl-4 border-l-2 border-[var(--border)] text-sm text-[var(--foreground)] leading-relaxed">
-                      <p>{article.content}</p>
-                      {article.paragraphs.map((p, pi) => (
-                        <p key={pi} className="mt-1">
-                          {p.number} {p.content}
-                        </p>
-                      ))}
-                    </div>
-                  </details>
-                ))}
-              </div>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Card>
-          <p className="text-[var(--text-muted)] text-center py-8">
-            조문 상세 정보는 국가법령정보센터에서 확인하세요.
-          </p>
-          <div className="text-center">
-            <a
-              href={`https://www.law.go.kr/법령/${encodeURIComponent(law.lawName)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[var(--primary)] text-sm hover:underline"
-            >
-              국가법령정보센터에서 보기 →
-            </a>
+      <div className="print-area">
+        {law.chapters.length > 0 ? (
+          <div className="space-y-4">
+            {law.chapters.map((chapter, ci) => (
+              <Card key={ci}>
+                <h2
+                  className="text-lg font-semibold text-[var(--foreground)] mb-3"
+                  style={{ fontFamily: "'Noto Serif KR', serif" }}
+                >
+                  {chapter.title}
+                </h2>
+                <div className="space-y-3">
+                  {chapter.articles.map((article, ai) => (
+                    <details key={ai} className="group" open>
+                      <summary className="cursor-pointer text-[var(--primary)] font-medium hover:underline">
+                        {article.number} {article.title}
+                      </summary>
+                      <div className="mt-2 pl-4 border-l-2 border-[var(--border)] text-sm text-[var(--foreground)] leading-relaxed">
+                        <p>{article.content}</p>
+                        {article.paragraphs.map((p, pi) => (
+                          <p key={pi} className="mt-1">
+                            {p.number} {p.content}
+                          </p>
+                        ))}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              </Card>
+            ))}
           </div>
-        </Card>
-      )}
+        ) : (
+          <Card>
+            <p className="text-[var(--text-muted)] text-center py-8">
+              조문 상세 정보는 국가법령정보센터에서 확인하세요.
+            </p>
+            <div className="text-center">
+              <a
+                href={`https://www.law.go.kr/법령/${encodeURIComponent(law.lawName)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--primary)] text-sm hover:underline"
+              >
+                국가법령정보센터에서 보기 →
+              </a>
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

@@ -72,7 +72,7 @@ export async function searchPrecedents(
   params: PrecedentSearchParams
 ): Promise<SearchResponse<PrecedentSearchResult>> {
   try {
-    const url = buildUrl("precSearch.do", {
+    const url = buildUrl("lawSearch.do", {
       target: "prec",
       query: params.query,
       display: params.size || 20,
@@ -101,7 +101,7 @@ export async function searchPrecedents(
 
 export async function getPrecedentDetail(precId: string): Promise<PrecedentDetail | null> {
   try {
-    const url = buildUrl("precService.do", { target: "prec", ID: precId });
+    const url = buildUrl("lawService.do", { target: "prec", ID: precId });
     const data = await fetchApi<Record<string, unknown>>(url);
     return extractPrecedentDetail(data);
   } catch {
@@ -210,28 +210,30 @@ function extractPrecedentResults(data: Record<string, unknown>): PrecedentSearch
     id: item.판례일련번호 || String(index),
     caseNumber: item.사건번호 || "",
     caseName: item.사건명 || "",
-    court: (item.법원명 as PrecedentSearchResult["court"]) || "대법원",
+    court: (item.법원명 || "대법원") as PrecedentSearchResult["court"],
     judgmentDate: item.선고일자 || "",
     caseType: item.사건종류명 || "",
-    summary: item.판례내용 || item.요지 || "",
+    summary: item.사건명 || "",
   }));
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 function extractPrecedentDetail(data: Record<string, unknown>): PrecedentDetail {
-  const root = data as Record<string, Record<string, unknown>>;
-  const info = root?.prec || root?.Prec || {};
+  const prec = (data as any)?.판례 || (data as any)?.prec || (data as any)?.Prec || {};
+  const basic = prec?.기본정보 || prec;
   return {
-    id: String(info.판례일련번호 || ""),
-    caseNumber: String(info.사건번호 || ""),
-    caseName: String(info.사건명 || ""),
-    court: (String(info.법원명 || "대법원")) as PrecedentDetail["court"],
-    judgmentDate: String(info.선고일자 || ""),
-    caseType: String(info.사건종류명 || ""),
-    summary: String(info.요지 || ""),
-    fullText: String(info.판례내용 || ""),
+    id: String(basic.판례일련번호 || prec.판례일련번호 || ""),
+    caseNumber: String(basic.사건번호 || prec.사건번호 || ""),
+    caseName: String(basic.사건명 || prec.사건명 || ""),
+    court: (String(basic.법원명 || prec.법원명 || "대법원")) as PrecedentDetail["court"],
+    judgmentDate: String(basic.선고일자 || prec.선고일자 || ""),
+    caseType: String(basic.사건종류명 || prec.사건종류명 || ""),
+    summary: String(basic.요지 || prec.요지 || prec.판시사항 || ""),
+    fullText: String(basic.판례내용 || prec.판례내용 || prec.이유 || ""),
     relatedLaws: [],
   };
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function extractAmendmentHistory(data: Record<string, unknown>): AmendmentHistory {

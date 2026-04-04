@@ -15,51 +15,87 @@ interface SearchData {
   meta: { total: number };
 }
 
-function DiffBlock({ change }: { change: ArticleChange }) {
-  const typeClass =
-    change.changeType === "added"
-      ? "highlight-added"
-      : change.changeType === "removed"
-        ? "highlight-removed"
-        : change.changeType === "modified"
-          ? "highlight-modified"
-          : "";
+interface ParsedParagraph {
+  content: string;
+  tag: "신설" | "개정" | "unchanged";
+}
 
-  const typeLabel =
-    change.changeType === "added"
-      ? "🟢 신설"
-      : change.changeType === "removed"
-        ? "🔴 삭제"
-        : change.changeType === "modified"
-          ? "🟡 수정"
-          : "";
+function parseParagraphs(text: string): ParsedParagraph[] {
+  const lines = text.split("\n").filter((l) => l.trim());
+  return lines.map((line) => {
+    if (line.includes("<신설") || line.includes("〈신설")) {
+      return { content: line.replace(/<신설[^>]*>/g, "").replace(/〈신설[^〉]*〉/g, "").trim(), tag: "신설" };
+    }
+    if (line.includes("<개정") || line.includes("〈개정")) {
+      return { content: line.replace(/<개정[^>]*>/g, "").replace(/〈개정[^〉]*〉/g, "").trim(), tag: "개정" };
+    }
+    return { content: line.trim(), tag: "unchanged" };
+  });
+}
+
+function DiffTable({ change }: { change: ArticleChange }) {
+  const paragraphs = parseParagraphs(change.newContent);
 
   return (
-    <div className={`p-3 rounded-lg mb-3 ${typeClass}`}>
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-xs">{typeLabel}</span>
-        <span className="font-semibold text-sm text-[var(--foreground)]">
-          {change.articleNumber} {change.articleTitle}
-        </span>
+    <div className="mb-6 border border-[var(--border)] rounded-lg overflow-hidden">
+      {/* 조문 헤더 */}
+      <div className="bg-[var(--background)] px-4 py-3 border-b border-[var(--border)]">
+        <div className="flex items-center gap-2">
+          <span className="text-xs px-2 py-0.5 rounded bg-[var(--accent-yellow)] text-white font-medium">
+            변경
+          </span>
+          <span className="font-semibold text-sm text-[var(--foreground)]">
+            제{change.articleNumber}조 {change.articleTitle && `(${change.articleTitle})`}
+          </span>
+        </div>
       </div>
-      {change.changeType === "modified" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-xs text-[var(--accent-red)] font-medium mb-1">개정 전</p>
-            <p className="text-[var(--foreground)] leading-relaxed">{change.oldContent}</p>
+
+      {/* 좌우 비교 헤더 */}
+      <div className="grid grid-cols-2 border-b border-[var(--border)]">
+        <div className="px-4 py-2 bg-red-50 border-r border-[var(--border)]">
+          <p className="text-xs font-semibold text-[var(--accent-red)]">구 (개정 전)</p>
+        </div>
+        <div className="px-4 py-2 bg-green-50">
+          <p className="text-xs font-semibold text-[var(--accent-green)]">신 (개정 후)</p>
+        </div>
+      </div>
+
+      {/* 항별 비교 */}
+      {paragraphs.map((para, i) => (
+        <div
+          key={i}
+          className={`grid grid-cols-2 border-b border-[var(--border)] last:border-b-0 ${
+            para.tag === "신설"
+              ? "bg-green-50/50"
+              : para.tag === "개정"
+                ? "bg-yellow-50/50"
+                : ""
+          }`}
+        >
+          {/* 구 (왼쪽) */}
+          <div className="px-4 py-3 border-r border-[var(--border)] text-sm leading-relaxed">
+            {para.tag === "신설" ? (
+              <span className="text-[var(--text-muted)] italic text-xs">(해당 없음 - 신설 조항)</span>
+            ) : para.tag === "개정" ? (
+              <span className="text-[var(--text-muted)] italic text-xs line-through">{para.content}</span>
+            ) : (
+              <span className="text-[var(--foreground)]">{para.content}</span>
+            )}
           </div>
-          <div>
-            <p className="text-xs text-[var(--accent-green)] font-medium mb-1">개정 후</p>
-            <p className="text-[var(--foreground)] leading-relaxed">{change.newContent}</p>
+          {/* 신 (오른쪽) */}
+          <div className="px-4 py-3 text-sm leading-relaxed">
+            <span className={`text-[var(--foreground)] ${para.tag === "신설" ? "font-medium" : ""}`}>
+              {para.content}
+            </span>
+            {para.tag === "신설" && (
+              <span className="ml-1 text-xs text-[var(--accent-green)] font-medium">[신설]</span>
+            )}
+            {para.tag === "개정" && (
+              <span className="ml-1 text-xs text-[var(--accent-yellow)] font-medium">[개정]</span>
+            )}
           </div>
         </div>
-      )}
-      {change.changeType === "added" && (
-        <p className="text-sm text-[var(--foreground)] leading-relaxed">{change.newContent}</p>
-      )}
-      {change.changeType === "removed" && (
-        <p className="text-sm text-[var(--foreground)] leading-relaxed">{change.oldContent}</p>
-      )}
+      ))}
     </div>
   );
 }
@@ -125,15 +161,15 @@ function CompareContent() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1
         className="text-2xl font-bold text-[var(--foreground)] mb-6"
         style={{ fontFamily: "'Noto Serif KR', serif" }}
       >
-        🔍 신구대조 비교
+        📋 신구대조표
       </h1>
 
-      {/* 검색 영역 - 항상 표시 */}
+      {/* 검색 영역 */}
       <div className="mb-6">
         <Autocomplete
           onSearch={handleSearch}
@@ -172,7 +208,7 @@ function CompareContent() {
       {/* 안내 메시지 */}
       {!lawId && searchResults.length === 0 && !searchLoading && (
         <div className="text-center py-16">
-          <p className="text-4xl mb-4">🔍</p>
+          <p className="text-4xl mb-4">📋</p>
           <p className="text-[var(--text-muted)]">
             비교할 법령을 검색하세요.
           </p>
@@ -191,7 +227,7 @@ function CompareContent() {
             {history.lawName} 개정 이력
           </h2>
           <p className="text-xs text-[var(--text-muted)] mb-4">
-            총 {history.amendments.length}회 개정 | 시점을 선택하면 해당 시점의 조문을 확인할 수 있습니다
+            총 {history.amendments.length}회 개정 | 시점을 선택하면 해당 시점의 개정 내용을 확인할 수 있습니다
           </p>
           {history.amendments.length > 0 ? (
             <div className="space-y-2 max-h-80 overflow-y-auto">
@@ -244,28 +280,48 @@ function CompareContent() {
         </Card>
       )}
 
-      {/* 비교 결과 - 현재 버전 변경 조문 */}
+      {/* 신구대조표 */}
       {lawId && !loading && compareResult && (
-        <Card>
-          <h2
-            className="text-lg font-semibold text-[var(--foreground)] mb-4"
-            style={{ fontFamily: "'Noto Serif KR', serif" }}
-          >
-            {compareResult.lawName} 신구대조
-          </h2>
-          <div className="flex gap-4 mb-4 text-xs text-[var(--text-muted)]">
-            <span>🟡 최근 개정된 조문 ({compareResult.changes.length}건)</span>
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2
+              className="text-lg font-semibold text-[var(--foreground)]"
+              style={{ fontFamily: "'Noto Serif KR', serif" }}
+            >
+              {compareResult.lawName} 신구대조표
+            </h2>
+            <span className="text-xs text-[var(--text-muted)]">
+              변경 조문 {compareResult.changes.length}건
+            </span>
           </div>
+
+          {/* 범례 */}
+          <div className="flex gap-4 mb-4 text-xs">
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded bg-green-100 border border-green-300 inline-block" />
+              신설
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded bg-yellow-100 border border-yellow-300 inline-block" />
+              개정
+            </span>
+            <span className="text-[var(--text-muted)]">
+              좌: 구(개정 전) | 우: 신(개정 후)
+            </span>
+          </div>
+
           {compareResult.changes.length > 0 ? (
             compareResult.changes.map((change, i) => (
-              <DiffBlock key={i} change={change} />
+              <DiffTable key={i} change={change} />
             ))
           ) : (
-            <p className="text-sm text-[var(--text-muted)] text-center py-8">
-              변경된 조문이 없습니다.
-            </p>
+            <Card>
+              <p className="text-sm text-[var(--text-muted)] text-center py-8">
+                변경된 조문이 없습니다.
+              </p>
+            </Card>
           )}
-        </Card>
+        </div>
       )}
     </div>
   );

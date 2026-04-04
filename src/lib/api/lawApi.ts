@@ -135,13 +135,16 @@ export async function compareLawVersions(
 
 // --- Helpers ---
 
-function stripHtml(text: string): string {
-  return text
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")
-    .trim();
+function stripHtml(text: string, keepAmendTags = false): string {
+  let result = text.replace(/<br\s*\/?>/gi, "\n");
+  if (keepAmendTags) {
+    // <개정 ...>, <신설 ...> 태그 보존
+    result = result.replace(/<(?!개정|신설|\/개정|\/신설)[^>]*>/g, "");
+  } else {
+    result = result.replace(/<[^>]*>/g, "");
+  }
+  // eslint-disable-next-line no-control-regex
+  return result.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "").trim();
 }
 
 // --- Data extractors ---
@@ -299,7 +302,7 @@ function extractCompareResult(data: Record<string, unknown>): CompareResult {
         articleTitle: String(a.조문제목 || ""),
         changeType: "modified" as const,
         oldContent: "",
-        newContent: stripHtml(fullContent),
+        newContent: stripHtml(fullContent, true),
       };
     });
 

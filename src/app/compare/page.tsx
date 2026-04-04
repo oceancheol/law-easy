@@ -73,6 +73,7 @@ function CompareContent() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [history, setHistory] = useState<AmendmentHistory | null>(null);
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
+  const [amendmentContent, setAmendmentContent] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
 
@@ -81,13 +82,15 @@ function CompareContent() {
     setLoading(true);
     fetch(`/api/compare?lawId=${lawId}`)
       .then((res) => res.json())
-      .then((data: { history: AmendmentHistory; compare: CompareResult }) => {
+      .then((data: { history: AmendmentHistory; compare: CompareResult; amendmentContent: string[] }) => {
         setHistory(data.history || null);
         setCompareResult(data.compare || null);
+        setAmendmentContent(data.amendmentContent || []);
       })
       .catch(() => {
         setHistory(null);
         setCompareResult(null);
+        setAmendmentContent([]);
       })
       .finally(() => setLoading(false));
   }, [lawId]);
@@ -110,10 +113,14 @@ function CompareContent() {
     setLoading(true);
     fetch(`/api/compare?lawId=${lawId}&date=${date}`)
       .then((res) => res.json())
-      .then((data: { compare: CompareResult }) => {
+      .then((data: { compare: CompareResult; amendmentContent: string[] }) => {
         setCompareResult(data.compare || null);
+        setAmendmentContent(data.amendmentContent || []);
       })
-      .catch(() => setCompareResult(null))
+      .catch(() => {
+        setCompareResult(null);
+        setAmendmentContent([]);
+      })
       .finally(() => setLoading(false));
   }
 
@@ -215,7 +222,29 @@ function CompareContent() {
         </Card>
       )}
 
-      {/* 비교 결과 */}
+      {/* 부칙 내용 (선택한 시점) */}
+      {lawId && !loading && selectedDate && amendmentContent.length > 0 && (
+        <Card className="mb-6">
+          <h2
+            className="text-lg font-semibold text-[var(--foreground)] mb-3"
+            style={{ fontFamily: "'Noto Serif KR', serif" }}
+          >
+            📜 개정 부칙 내용
+          </h2>
+          <p className="text-xs text-[var(--text-muted)] mb-3">
+            {formatDate(selectedDate)} 개정 시 부칙
+          </p>
+          <div className="space-y-1 text-sm text-[var(--foreground)] leading-relaxed bg-[var(--background)] rounded-lg p-4 max-h-80 overflow-y-auto">
+            {amendmentContent.map((line, i) => (
+              <p key={i} className={line.startsWith("부칙") || line.startsWith("제") ? "font-medium" : "pl-2"}>
+                {line}
+              </p>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* 비교 결과 - 현재 버전 변경 조문 */}
       {lawId && !loading && compareResult && (
         <Card>
           <h2
@@ -225,9 +254,7 @@ function CompareContent() {
             {compareResult.lawName} 신구대조
           </h2>
           <div className="flex gap-4 mb-4 text-xs text-[var(--text-muted)]">
-            <span>🟢 신설</span>
-            <span>🔴 삭제</span>
-            <span>🟡 수정</span>
+            <span>🟡 최근 개정된 조문 ({compareResult.changes.length}건)</span>
           </div>
           {compareResult.changes.length > 0 ? (
             compareResult.changes.map((change, i) => (
@@ -235,7 +262,7 @@ function CompareContent() {
             ))
           ) : (
             <p className="text-sm text-[var(--text-muted)] text-center py-8">
-              개정 이력에서 시점을 선택하면 해당 시점의 변경 조문을 확인할 수 있습니다.
+              변경된 조문이 없습니다.
             </p>
           )}
         </Card>

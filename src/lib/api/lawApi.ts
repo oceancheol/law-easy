@@ -244,12 +244,30 @@ function extractAmendmentHistory(data: Record<string, unknown>): AmendmentHistor
   return {
     lawName: String(basic.법령명_한글 || ""),
     lawId: String(law.법령키 || ""),
-    amendments: toArray(appendix as Record<string, any>[]).map((item) => ({
-      date: String(item.부칙공포일자 || ""),
-      lawNumber: String(item.부칙공포번호 || ""),
-      type: "개정",
-      description: `${basic.법령명_한글 || ""} (${item.부칙공포일자 || ""})`,
-    })),
+    amendments: toArray(appendix as Record<string, any>[]).map((item) => {
+      const rawContent = item.부칙내용 || [];
+      const contentLines: string[] = [];
+      if (Array.isArray(rawContent)) {
+        for (const group of rawContent) {
+          if (Array.isArray(group)) {
+            for (const line of group) {
+              if (typeof line === "string" && line.trim()) {
+                contentLines.push(line.trim());
+              }
+            }
+          } else if (typeof group === "string" && group.trim()) {
+            contentLines.push(group.trim());
+          }
+        }
+      }
+      return {
+        date: String(item.부칙공포일자 || ""),
+        lawNumber: String(item.부칙공포번호 || ""),
+        type: "개정",
+        description: `${basic.법령명_한글 || ""} (${item.부칙공포일자 || ""})`,
+        content: contentLines,
+      };
+    }),
   };
 }
 
@@ -259,7 +277,7 @@ function extractCompareResult(data: Record<string, unknown>): CompareResult {
   const articles = law?.조문?.조문단위 || [];
 
   const changes: ArticleChange[] = toArray(articles as Record<string, any>[])
-    .filter((a: any) => a.조문변경여부 === "변경")
+    .filter((a: any) => a.조문변경여부 === "Y")
     .map((a: any) => ({
       articleNumber: String(a.조문번호 || ""),
       articleTitle: String(a.조문제목 || ""),

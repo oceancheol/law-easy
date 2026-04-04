@@ -32,4 +32,5 @@ export interface Amendment {
   lawNumber: string;
   type: string;
   description: string;
+  content?: string[];
 }

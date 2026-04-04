@@ -14,11 +14,21 @@ export async function GET(request: NextRequest) {
   }
 
   const history = await getAmendmentHistory(lawId);
-  const compare = date ? await compareLawVersions(lawId, date) : null;
+  const compare = await compareLawVersions(lawId, date || "");
+
+  // date가 선택되면 해당 부칙 내용 찾기
+  let amendmentContent: string[] = [];
+  if (date && history) {
+    const matched = history.amendments.find((a) => a.date === date);
+    if (matched?.content) {
+      amendmentContent = matched.content;
+    }
+  }
 
   return NextResponse.json({
     success: true,
     history,
     compare,
+    amendmentContent,
   });
 }

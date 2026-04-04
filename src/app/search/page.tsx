@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import Autocomplete from "@/components/ui/Autocomplete";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -16,6 +16,57 @@ interface SearchData {
   meta: { total: number; page: number; size: number };
 }
 
+interface LawGroup {
+  baseName: string;
+  laws: LawSearchResult[];
+}
+
+function groupRelatedLaws(results: LawSearchResult[]): { groups: LawGroup[]; ungrouped: LawSearchResult[] } {
+  const used = new Set<string>();
+  const groups: LawGroup[] = [];
+
+  for (const law of results) {
+    if (used.has(law.id)) continue;
+    if (law.lawType !== "법률") continue;
+
+    const baseName = law.lawName;
+    const related = results.filter(
+      (r) =>
+        !used.has(r.id) &&
+        r.id !== law.id &&
+        (r.lawName === `${baseName} 시행령` || r.lawName === `${baseName} 시행규칙`)
+    );
+
+    if (related.length > 0) {
+      const group = [law, ...related];
+      group.forEach((g) => used.add(g.id));
+      groups.push({ baseName, laws: group });
+    }
+  }
+
+  const ungrouped = results.filter((r) => !used.has(r.id));
+  return { groups, ungrouped };
+}
+
+function LawRelationBadge({ law, router }: { law: LawSearchResult; router: ReturnType<typeof useRouter> }) {
+  const colorMap: Record<string, string> = {
+    "법률": "bg-[var(--primary)] text-white border-[var(--primary)]",
+    "시행령": "bg-[var(--accent-green)] text-white border-[var(--accent-green)]",
+    "시행규칙": "bg-[var(--accent-yellow)] text-white border-[var(--accent-yellow)]",
+  };
+  return (
+    <button
+      onClick={() => router.push(`/law/${law.lawId || law.id}`)}
+      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm transition-colors hover:opacity-80 ${
+        colorMap[law.lawType] || "bg-[var(--card-bg)] border-[var(--border)] text-[var(--foreground)]"
+      }`}
+    >
+      <Badge label={law.lawType} />
+      <span className="font-medium">{law.lawName}</span>
+    </button>
+  );
+}
+
 function SearchContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -26,6 +77,9 @@ function SearchContent() {
   const [results, setResults] = useState<LawSearchResult[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [showRelationMap, setShowRelationMap] = useState(true);
+
+  const { groups, ungrouped } = useMemo(() => groupRelatedLaws(results), [results]);
 
   useEffect(() => {
     if (!query) return;
@@ -72,9 +126,44 @@ function SearchContent() {
         </div>
       )}
 
+      {/* 법령 관계도 */}
+      {!loading && groups.length > 0 && (
+        <div className="mb-6">
+          <button
+            onClick={() => setShowRelationMap(!showRelationMap)}
+            className="flex items-center gap-2 text-sm text-[var(--primary)] mb-3 hover:underline"
+          >
+            🗺️ 법령 관계도 ({groups.length}개 그룹)
+            <span>{showRelationMap ? "▲ 접기" : "▼ 펼치기"}</span>
+          </button>
+          {showRelationMap && (
+            <div className="space-y-3">
+              {groups.map((group) => (
+                <Card key={group.baseName}>
+                  <p className="text-xs text-[var(--text-muted)] mb-2 font-medium">
+                    📋 {group.baseName} 체계
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {group.laws
+                      .sort((a, b) => {
+                        const order = ["법률", "시행령", "시행규칙"];
+                        return order.indexOf(a.lawType) - order.indexOf(b.lawType);
+                      })
+                      .map((law) => (
+                        <LawRelationBadge key={law.id} law={law} router={router} />
+                      ))}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 검색 결과 목록 */}
       {!loading && (
         <div className="space-y-4">
-          {results.map((law) => (
+          {(groups.length > 0 ? ungrouped : results).map((law) => (
             <Card
               key={law.id}
               hoverable

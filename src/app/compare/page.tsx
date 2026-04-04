@@ -2,10 +2,18 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
-import SearchBar from "@/components/ui/SearchBar";
+import Autocomplete from "@/components/ui/Autocomplete";
 import Card from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
 import Loading from "@/components/ui/Loading";
+import { formatDate } from "@/lib/utils/format";
 import type { AmendmentHistory, CompareResult, ArticleChange } from "@/types/compare";
+import type { LawSearchResult } from "@/types/law";
+
+interface SearchData {
+  data: LawSearchResult[];
+  meta: { total: number };
+}
 
 function DiffBlock({ change }: { change: ArticleChange }) {
   const typeClass =
@@ -37,32 +45,20 @@ function DiffBlock({ change }: { change: ArticleChange }) {
       {change.changeType === "modified" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
-            <p className="text-xs text-[var(--accent-red)] font-medium mb-1">
-              개정 전
-            </p>
-            <p className="text-[var(--foreground)] leading-relaxed">
-              {change.oldContent}
-            </p>
+            <p className="text-xs text-[var(--accent-red)] font-medium mb-1">개정 전</p>
+            <p className="text-[var(--foreground)] leading-relaxed">{change.oldContent}</p>
           </div>
           <div>
-            <p className="text-xs text-[var(--accent-green)] font-medium mb-1">
-              개정 후
-            </p>
-            <p className="text-[var(--foreground)] leading-relaxed">
-              {change.newContent}
-            </p>
+            <p className="text-xs text-[var(--accent-green)] font-medium mb-1">개정 후</p>
+            <p className="text-[var(--foreground)] leading-relaxed">{change.newContent}</p>
           </div>
         </div>
       )}
       {change.changeType === "added" && (
-        <p className="text-sm text-[var(--foreground)] leading-relaxed">
-          {change.newContent}
-        </p>
+        <p className="text-sm text-[var(--foreground)] leading-relaxed">{change.newContent}</p>
       )}
       {change.changeType === "removed" && (
-        <p className="text-sm text-[var(--foreground)] leading-relaxed">
-          {change.oldContent}
-        </p>
+        <p className="text-sm text-[var(--foreground)] leading-relaxed">{change.oldContent}</p>
       )}
     </div>
   );
@@ -72,8 +68,9 @@ function CompareContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const lawId = searchParams.get("lawId") || "";
-  const query = searchParams.get("q") || "";
 
+  const [searchResults, setSearchResults] = useState<LawSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [history, setHistory] = useState<AmendmentHistory | null>(null);
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -95,8 +92,17 @@ function CompareContent() {
       .finally(() => setLoading(false));
   }, [lawId]);
 
-  function handleSearch(newQuery: string) {
-    router.push(`/search?q=${encodeURIComponent(newQuery)}`);
+  function handleSearch(query: string) {
+    setSearchLoading(true);
+    fetch(`/api/search?q=${encodeURIComponent(query)}&size=10`)
+      .then((res) => res.json())
+      .then((data: SearchData) => setSearchResults(data.data || []))
+      .catch(() => setSearchResults([]))
+      .finally(() => setSearchLoading(false));
+  }
+
+  function handleSelectLaw(law: LawSearchResult) {
+    router.push(`/compare?lawId=${law.lawId || law.id}`);
   }
 
   function handleDateSelect(date: string) {
@@ -120,53 +126,84 @@ function CompareContent() {
         🔍 신구대조 비교
       </h1>
 
-      {!lawId && (
-        <>
-          <div className="mb-6">
-            <SearchBar
-              onSearch={handleSearch}
-              defaultValue={query}
-              placeholder="비교할 법령을 검색하세요..."
-            />
+      {/* 검색 영역 - 항상 표시 */}
+      <div className="mb-6">
+        <Autocomplete
+          onSearch={handleSearch}
+          placeholder="비교할 법령을 검색하세요... (예: 근로기준법, 민법)"
+        />
+      </div>
+
+      {/* 검색 결과 - 법령 선택 */}
+      {searchLoading && <Loading text="법령 검색 중..." />}
+
+      {!searchLoading && searchResults.length > 0 && !lawId && (
+        <Card className="mb-6">
+          <h2 className="text-sm font-semibold text-[var(--text-muted)] mb-3">
+            법령을 선택하세요
+          </h2>
+          <div className="space-y-2">
+            {searchResults.map((law) => (
+              <button
+                key={law.id}
+                onClick={() => handleSelectLaw(law)}
+                className="w-full text-left p-3 rounded-lg border border-[var(--border)] hover:border-[var(--primary)] transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Badge label={law.lawType} />
+                  <span className="font-medium text-[var(--foreground)]">{law.lawName}</span>
+                  <span className="text-xs text-[var(--text-muted)] ml-auto">
+                    {law.ministry} | 시행 {formatDate(law.enforcementDate)}
+                  </span>
+                </div>
+              </button>
+            ))}
           </div>
-          <div className="text-center py-16">
-            <p className="text-4xl mb-4">🔍</p>
-            <p className="text-[var(--text-muted)]">
-              법령을 검색한 후 상세 페이지에서 &quot;신구대조 비교&quot; 버튼을
-              클릭하세요.
-            </p>
-          </div>
-        </>
+        </Card>
+      )}
+
+      {/* 안내 메시지 */}
+      {!lawId && searchResults.length === 0 && !searchLoading && (
+        <div className="text-center py-16">
+          <p className="text-4xl mb-4">🔍</p>
+          <p className="text-[var(--text-muted)]">
+            비교할 법령을 검색하세요.
+          </p>
+        </div>
       )}
 
       {loading && <Loading text="비교 데이터 로딩 중..." />}
 
+      {/* 개정 이력 */}
       {lawId && !loading && history && (
         <Card className="mb-6">
           <h2
-            className="text-lg font-semibold text-[var(--foreground)] mb-3"
+            className="text-lg font-semibold text-[var(--foreground)] mb-1"
             style={{ fontFamily: "'Noto Serif KR', serif" }}
           >
-            개정 이력
+            {history.lawName} 개정 이력
           </h2>
+          <p className="text-xs text-[var(--text-muted)] mb-4">
+            총 {history.amendments.length}회 개정 | 시점을 선택하면 해당 시점의 조문을 확인할 수 있습니다
+          </p>
           {history.amendments.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-80 overflow-y-auto">
               {history.amendments.map((amendment, i) => (
                 <button
                   key={i}
                   onClick={() => handleDateSelect(amendment.date)}
                   className={`w-full text-left p-3 rounded-lg border text-sm transition-colors ${
                     selectedDate === amendment.date
-                      ? "border-[var(--primary)] bg-[var(--primary)]/5"
+                      ? "border-[var(--primary)] bg-blue-50"
                       : "border-[var(--border)] hover:border-[var(--primary)]"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-[var(--foreground)]">
-                      {amendment.description}
+                      {formatDate(amendment.date)}
                     </span>
                     <span className="text-xs text-[var(--text-muted)]">
-                      {amendment.date} | {amendment.type}
+                      {amendment.type} | 법률 제{amendment.lawNumber}호
                     </span>
                   </div>
                 </button>
@@ -178,6 +215,7 @@ function CompareContent() {
         </Card>
       )}
 
+      {/* 비교 결과 */}
       {lawId && !loading && compareResult && (
         <Card>
           <h2
@@ -197,7 +235,7 @@ function CompareContent() {
             ))
           ) : (
             <p className="text-sm text-[var(--text-muted)] text-center py-8">
-              비교할 변경사항이 없습니다. 개정 이력에서 시점을 선택해 주세요.
+              개정 이력에서 시점을 선택하면 해당 시점의 변경 조문을 확인할 수 있습니다.
             </p>
           )}
         </Card>

@@ -24,6 +24,11 @@ export default function Footer() {
             </h4>
             <ul className="space-y-2 text-sm text-[var(--text-muted)]">
               <li>
+                <Link href="/situation" className="hover:text-[var(--primary)] transition-colors">
+                  상황분석
+                </Link>
+              </li>
+              <li>
                 <Link href="/search" className="hover:text-[var(--primary)] transition-colors">
                   법령 검색
                 </Link>

@@ -56,10 +56,10 @@ export default function LawDetailPage() {
       </a>
 
       <Card className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <Badge label={law.lawType} />
           <h1
-            className="text-2xl font-bold text-[var(--foreground)]"
+            className="text-xl sm:text-2xl font-bold text-[var(--foreground)]"
             style={{ fontFamily: "'Noto Serif KR', serif" }}
           >
             {law.lawName}
@@ -75,7 +75,7 @@ export default function LawDetailPage() {
             <span>공포일: {formatDate(law.promulgationDate)}</span>
           )}
         </div>
-        <div className="mt-4 flex gap-2 print-hide">
+        <div className="mt-4 flex flex-col sm:flex-row gap-2 print-hide">
           <a
             href={`/compare?lawId=${law.lawId || law.id}`}
             className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors"

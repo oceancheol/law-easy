@@ -1,9 +1,17 @@
+import { XMLParser } from "fast-xml-parser";
 import type { SearchResponse, LawSearchResult, LawDetail, SearchParams } from "@/types/law";
 import type { PrecedentSearchResult, PrecedentDetail, PrecedentSearchParams } from "@/types/precedent";
 import type { AmendmentHistory, CompareResult, ArticleChange } from "@/types/compare";
 
 const LAW_API_BASE = "https://www.law.go.kr/DRF";
 const API_KEY = process.env.LAW_API_KEY || "";
+
+const xmlParser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: "@_",
+  textNodeName: "#text",
+  isArray: (name) => ["law", "prec", "조문단위", "항", "부칙단위"].includes(name),
+});
 
 interface LawApiParams {
   [key: string]: string | number | undefined;
@@ -12,7 +20,7 @@ interface LawApiParams {
 function buildUrl(path: string, params: LawApiParams): string {
   const url = new URL(`${LAW_API_BASE}/${path}`);
   url.searchParams.set("OC", API_KEY);
-  url.searchParams.set("type", "JSON");
+  url.searchParams.set("type", "XML");
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined) {
       url.searchParams.set(key, String(value));
@@ -21,12 +29,13 @@ function buildUrl(path: string, params: LawApiParams): string {
   return url.toString();
 }
 
-async function fetchApi<T>(url: string): Promise<T> {
+async function fetchXml(url: string): Promise<Record<string, unknown>> {
   const response = await fetch(url, { next: { revalidate: 300 } });
   if (!response.ok) {
     throw new Error(`API 요청 실패: ${response.status}`);
   }
-  return response.json() as Promise<T>;
+  const text = await response.text();
+  return xmlParser.parse(text) as Record<string, unknown>;
 }
 
 export async function searchLaws(params: SearchParams): Promise<SearchResponse<LawSearchResult>> {
@@ -37,7 +46,7 @@ export async function searchLaws(params: SearchParams): Promise<SearchResponse<L
       display: params.size || 20,
       page: params.page || 1,
     });
-    const data = await fetchApi<Record<string, unknown>>(url);
+    const data = await fetchXml(url);
     const items = extractLawResults(data);
     return {
       success: true,
@@ -61,7 +70,7 @@ export async function searchLaws(params: SearchParams): Promise<SearchResponse<L
 export async function getLawDetail(lawId: string): Promise<LawDetail | null> {
   try {
     const url = buildUrl("lawService.do", { target: "law", MST: lawId });
-    const data = await fetchApi<Record<string, unknown>>(url);
+    const data = await fetchXml(url);
     return extractLawDetail(data);
   } catch {
     return null;
@@ -78,7 +87,7 @@ export async function searchPrecedents(
       display: params.size || 20,
       page: params.page || 1,
     });
-    const data = await fetchApi<Record<string, unknown>>(url);
+    const data = await fetchXml(url);
     const items = extractPrecedentResults(data);
     return {
       success: true,
@@ -102,7 +111,7 @@ export async function searchPrecedents(
 export async function getPrecedentDetail(precId: string): Promise<PrecedentDetail | null> {
   try {
     const url = buildUrl("lawService.do", { target: "prec", ID: precId });
-    const data = await fetchApi<Record<string, unknown>>(url);
+    const data = await fetchXml(url);
     return extractPrecedentDetail(data);
   } catch {
     return null;
@@ -111,9 +120,8 @@ export async function getPrecedentDetail(precId: string): Promise<PrecedentDetai
 
 export async function getAmendmentHistory(lawId: string): Promise<AmendmentHistory | null> {
   try {
-    // lawService.do에서 부칙 정보로 개정 이력 추출
     const url = buildUrl("lawService.do", { target: "law", MST: lawId });
-    const data = await fetchApi<Record<string, unknown>>(url);
+    const data = await fetchXml(url);
     return extractAmendmentHistory(data);
   } catch {
     return null;
@@ -122,11 +130,12 @@ export async function getAmendmentHistory(lawId: string): Promise<AmendmentHisto
 
 export async function compareLawVersions(
   lawId: string,
-  _date: string
+  _date?: string
 ): Promise<CompareResult | null> {
+  void _date; // 향후 날짜별 비교에 사용
   try {
     const url = buildUrl("lawService.do", { target: "law", MST: lawId });
-    const data = await fetchApi<Record<string, unknown>>(url);
+    const data = await fetchXml(url);
     return extractCompareResult(data);
   } catch {
     return null;
@@ -136,22 +145,30 @@ export async function compareLawVersions(
 // --- Helpers ---
 
 function stripHtml(text: string, keepAmendTags = false): string {
+  if (typeof text !== "string") return String(text || "");
   let result = text.replace(/<br\s*\/?>/gi, "\n");
   if (keepAmendTags) {
-    // <개정 ...>, <신설 ...> 태그 보존
     result = result.replace(/<(?!개정|신설|\/개정|\/신설)[^>]*>/g, "");
   } else {
     result = result.replace(/<[^>]*>/g, "");
   }
-  // eslint-disable-next-line no-control-regex
   return result.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "").trim();
+}
+
+function str(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "object" && "#text" in (value as Record<string, unknown>)) {
+    return String((value as Record<string, unknown>)["#text"]);
+  }
+  return String(value);
 }
 
 // --- Data extractors ---
 
 function extractTotal(data: Record<string, unknown>): number {
-  const totalCnt = (data as Record<string, Record<string, unknown>>)?.PrecSearch?.totalCnt
-    || (data as Record<string, Record<string, unknown>>)?.LawSearch?.totalCnt
+  const root = data as Record<string, Record<string, unknown>>;
+  const totalCnt = root?.PrecSearch?.totalCnt
+    || root?.LawSearch?.totalCnt
     || 0;
   return Number(totalCnt);
 }
@@ -171,15 +188,15 @@ function mapLawType(raw: string): LawSearchResult["lawType"] {
 function extractLawResults(data: Record<string, unknown>): LawSearchResult[] {
   const root = data as Record<string, Record<string, unknown>>;
   const items = root?.LawSearch?.law;
-  return toArray(items as Record<string, string>[]).map((item, index) => ({
-    id: item.법령일련번호 || String(index),
-    lawName: item.법령명한글 || "",
-    lawType: mapLawType(item.법령구분명 || ""),
-    ministry: item.소관부처명 || "",
-    lawId: item.법령일련번호 || "",
-    promulgationDate: item.공포일자 || "",
-    enforcementDate: item.시행일자 || "",
-    summary: item.법령약칭명 || "",
+  return toArray(items as Record<string, unknown>[]).map((item, index) => ({
+    id: str(item["법령일련번호"]) || String(index),
+    lawName: str(item["법령명한글"]),
+    lawType: mapLawType(str(item["법령구분명"])),
+    ministry: str(item["소관부처명"]),
+    lawId: str(item["법령일련번호"]),
+    promulgationDate: str(item["공포일자"]),
+    enforcementDate: str(item["시행일자"]),
+    summary: str(item["법령약칭명"]),
   }));
 }
 
@@ -192,23 +209,23 @@ function extractLawDetail(data: Record<string, unknown>): LawDetail {
   const articles = law?.조문?.조문단위 || [];
 
   const articleList = toArray(articles as Record<string, any>[]).map((a) => ({
-    number: String(a.조문번호 || ""),
-    title: String(a.조문제목 || ""),
-    content: String(a.조문내용 || ""),
-    paragraphs: toArray(a.항 as Record<string, string>[]).map((p) => ({
-      number: String(p.항번호 || ""),
-      content: String(p.항내용 || ""),
+    number: str(a.조문번호),
+    title: str(a.조문제목),
+    content: stripHtml(str(a.조문내용)),
+    paragraphs: toArray(a.항 as Record<string, any>[]).map((p) => ({
+      number: str(p.항번호),
+      content: stripHtml(str(p.항내용)),
     })),
   }));
 
   return {
-    id: String(law.법령키 || ""),
-    lawName: String(basic.법령명_한글 || ""),
-    lawType: mapLawType(String(lawType?.content || "")),
-    ministry: String(ministry?.content || ""),
-    lawId: String(law.법령키 || ""),
-    promulgationDate: String(basic.공포일자 || ""),
-    enforcementDate: String(basic.시행일자 || ""),
+    id: str(law.법령키),
+    lawName: str(basic.법령명_한글),
+    lawType: mapLawType(str(lawType?.["#text"] || lawType)),
+    ministry: str(ministry?.["#text"] || ministry),
+    lawId: str(law.법령키),
+    promulgationDate: str(basic.공포일자),
+    enforcementDate: str(basic.시행일자),
     chapters: [{
       title: "조문",
       articles: articleList,
@@ -220,14 +237,14 @@ function extractLawDetail(data: Record<string, unknown>): LawDetail {
 function extractPrecedentResults(data: Record<string, unknown>): PrecedentSearchResult[] {
   const root = data as Record<string, Record<string, unknown>>;
   const items = root?.PrecSearch?.prec;
-  return toArray(items as Record<string, string>[]).map((item, index) => ({
-    id: item.판례일련번호 || String(index),
-    caseNumber: item.사건번호 || "",
-    caseName: item.사건명 || "",
-    court: (item.법원명 || "대법원") as PrecedentSearchResult["court"],
-    judgmentDate: item.선고일자 || "",
-    caseType: item.사건종류명 || "",
-    summary: item.사건명 || "",
+  return toArray(items as Record<string, unknown>[]).map((item, index) => ({
+    id: str(item["판례일련번호"]) || String(index),
+    caseNumber: str(item["사건번호"]),
+    caseName: str(item["사건명"]),
+    court: (str(item["법원명"]) || "대법원") as PrecedentSearchResult["court"],
+    judgmentDate: str(item["선고일자"]),
+    caseType: str(item["사건종류명"]),
+    summary: str(item["사건명"]),
   }));
 }
 
@@ -236,14 +253,14 @@ function extractPrecedentDetail(data: Record<string, unknown>): PrecedentDetail 
   const prec = (data as any)?.PrecService || (data as any)?.판례 || (data as any)?.prec || {};
   const basic = prec?.기본정보 || prec;
   return {
-    id: String(basic.판례정보일련번호 || basic.판례일련번호 || ""),
-    caseNumber: String(basic.사건번호 || ""),
-    caseName: String(basic.사건명 || ""),
-    court: (String(basic.법원명 || "대법원")) as PrecedentDetail["court"],
-    judgmentDate: String(basic.선고일자 || ""),
-    caseType: String(basic.사건종류명 || ""),
-    summary: stripHtml(String(basic.판결요지 || basic.판시사항 || basic.요지 || "")),
-    fullText: stripHtml(String(basic.판례내용 || "")),
+    id: str(basic.판례정보일련번호 || basic.판례일련번호),
+    caseNumber: str(basic.사건번호),
+    caseName: str(basic.사건명),
+    court: (str(basic.법원명) || "대법원") as PrecedentDetail["court"],
+    judgmentDate: str(basic.선고일자),
+    caseType: str(basic.사건종류명),
+    summary: stripHtml(str(basic.판결요지 || basic.판시사항 || basic.요지)),
+    fullText: stripHtml(str(basic.판례내용)),
     relatedLaws: [],
   };
 }
@@ -256,8 +273,8 @@ function extractAmendmentHistory(data: Record<string, unknown>): AmendmentHistor
   const appendix = law?.부칙?.부칙단위 || [];
 
   return {
-    lawName: String(basic.법령명_한글 || ""),
-    lawId: String(law.법령키 || ""),
+    lawName: str(basic.법령명_한글),
+    lawId: str(law.법령키),
     amendments: toArray(appendix as Record<string, any>[]).map((item) => {
       const rawContent = item.부칙내용 || [];
       const contentLines: string[] = [];
@@ -273,12 +290,14 @@ function extractAmendmentHistory(data: Record<string, unknown>): AmendmentHistor
             contentLines.push(group.trim());
           }
         }
+      } else if (typeof rawContent === "string") {
+        contentLines.push(stripHtml(rawContent));
       }
       return {
-        date: String(item.부칙공포일자 || ""),
-        lawNumber: String(item.부칙공포번호 || ""),
+        date: str(item.부칙공포일자),
+        lawNumber: str(item.부칙공포번호),
         type: "개정",
-        description: `${basic.법령명_한글 || ""} (${item.부칙공포일자 || ""})`,
+        description: `${str(basic.법령명_한글)} (${str(item.부칙공포일자)})`,
         content: contentLines,
       };
     }),
@@ -291,15 +310,19 @@ function extractCompareResult(data: Record<string, unknown>): CompareResult {
   const articles = law?.조문?.조문단위 || [];
 
   const changes: ArticleChange[] = toArray(articles as Record<string, any>[])
-    .filter((a: any) => a.조문변경여부 === "Y")
+    .filter((a: any) => {
+      const content = str(a.조문내용);
+      return content.includes("<개정") || content.includes("<신설") ||
+             content.includes("〈개정") || content.includes("〈신설");
+    })
     .map((a: any) => {
       const paragraphs = toArray(a.항 as Record<string, any>[]);
       const fullContent = paragraphs.length > 0
-        ? paragraphs.map((p: any) => String(p.항내용 || "")).join("\n")
-        : String(a.조문내용 || "");
+        ? paragraphs.map((p: any) => str(p.항내용)).join("\n")
+        : str(a.조문내용);
       return {
-        articleNumber: String(a.조문번호 || ""),
-        articleTitle: String(a.조문제목 || ""),
+        articleNumber: str(a.조문번호),
+        articleTitle: str(a.조문제목),
         changeType: "modified" as const,
         oldContent: "",
         newContent: stripHtml(fullContent, true),
@@ -307,12 +330,12 @@ function extractCompareResult(data: Record<string, unknown>): CompareResult {
     });
 
   return {
-    lawName: String(basic.법령명_한글 || ""),
-    lawId: String(law.법령키 || ""),
+    lawName: str(basic.법령명_한글),
+    lawId: str(law.법령키),
     oldVersion: { date: "", lawNumber: "" },
     newVersion: {
-      date: String(basic.공포일자 || ""),
-      lawNumber: String(basic.공포번호 || ""),
+      date: str(basic.공포일자),
+      lawNumber: str(basic.공포번호),
     },
     changes,
   };

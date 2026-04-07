@@ -50,8 +50,8 @@ function DiffTable({ change }: { change: ArticleChange }) {
         </div>
       </div>
 
-      {/* 좌우 비교 헤더 */}
-      <div className="grid grid-cols-2 border-b border-[var(--border)]">
+      {/* 좌우 비교 헤더 — 모바일에서는 숨김(각 항목에 라벨 표시) */}
+      <div className="hidden sm:grid grid-cols-2 border-b border-[var(--border)]">
         <div className="px-4 py-2 bg-red-50 border-r border-[var(--border)]">
           <p className="text-xs font-semibold text-[var(--accent-red)]">구 (개정 전)</p>
         </div>
@@ -60,38 +60,36 @@ function DiffTable({ change }: { change: ArticleChange }) {
         </div>
       </div>
 
-      {/* 항별 비교 */}
+      {/* 항별 비교 — 모바일: 세로 스택, 데스크톱: 좌우 */}
       {paragraphs.map((para, i) => (
         <div
           key={i}
-          className={`grid grid-cols-2 border-b border-[var(--border)] last:border-b-0 ${
-            para.tag === "신설"
-              ? "bg-green-50/50"
-              : para.tag === "개정"
-                ? "bg-yellow-50/50"
-                : ""
-          }`}
+          className="flex flex-col sm:grid sm:grid-cols-2 border-b border-[var(--border)] last:border-b-0"
         >
-          {/* 구 (왼쪽) */}
-          <div className="px-4 py-3 border-r border-[var(--border)] text-sm leading-relaxed">
+          {/* 구 (왼쪽/위) */}
+          <div className="px-4 py-3 sm:border-r border-[var(--border)] text-sm leading-relaxed">
+            <span className="sm:hidden text-xs font-semibold text-[var(--accent-red)] block mb-1">구 (개정 전)</span>
             {para.tag === "신설" ? (
-              <span className="text-[var(--text-muted)] italic text-xs">(해당 없음 - 신설 조항)</span>
-            ) : para.tag === "개정" ? (
-              <span className="text-[var(--text-muted)] italic text-xs line-through">{para.content}</span>
+              <span className="text-[var(--text-muted)] italic text-xs">(해당 없음)</span>
             ) : (
               <span className="text-[var(--foreground)]">{para.content}</span>
             )}
           </div>
-          {/* 신 (오른쪽) */}
-          <div className="px-4 py-3 text-sm leading-relaxed">
-            <span className={`text-[var(--foreground)] ${para.tag === "신설" ? "font-medium" : ""}`}>
-              {para.content}
-            </span>
-            {para.tag === "신설" && (
-              <span className="ml-1 text-xs text-[var(--accent-green)] font-medium">[신설]</span>
-            )}
-            {para.tag === "개정" && (
-              <span className="ml-1 text-xs text-[var(--accent-yellow)] font-medium">[개정]</span>
+          {/* 신 (오른쪽/아래) */}
+          <div className="px-4 py-3 text-sm leading-relaxed border-t sm:border-t-0 border-[var(--border-light)]">
+            <span className="sm:hidden text-xs font-semibold text-[var(--accent-green)] block mb-1">신 (개정 후)</span>
+            {para.tag === "신설" ? (
+              <span className="px-1 rounded" style={{ background: "rgba(39, 174, 96, 0.15)", color: "var(--foreground)" }}>
+                {para.content}
+                <span className="ml-1 text-xs font-semibold" style={{ color: "#27AE60" }}>[신설]</span>
+              </span>
+            ) : para.tag === "개정" ? (
+              <span className="px-1 rounded" style={{ background: "rgba(243, 156, 18, 0.15)", color: "var(--foreground)" }}>
+                {para.content}
+                <span className="ml-1 text-xs font-semibold" style={{ color: "#E67E22" }}>[개정]</span>
+              </span>
+            ) : (
+              <span className="text-[var(--foreground)]">{para.content}</span>
             )}
           </div>
         </div>
@@ -115,20 +113,25 @@ function CompareContent() {
 
   useEffect(() => {
     if (!lawId) return;
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetching 로딩 표시
     setLoading(true);
     fetch(`/api/compare?lawId=${lawId}`)
       .then((res) => res.json())
       .then((data: { history: AmendmentHistory; compare: CompareResult; amendmentContent: string[] }) => {
+        if (cancelled) return;
         setHistory(data.history || null);
         setCompareResult(data.compare || null);
         setAmendmentContent(data.amendmentContent || []);
       })
       .catch(() => {
+        if (cancelled) return;
         setHistory(null);
         setCompareResult(null);
         setAmendmentContent([]);
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [lawId]);
 
   function handleSearch(query: string) {
@@ -215,7 +218,7 @@ function CompareContent() {
         </div>
       )}
 
-      {loading && <Loading text="비교 데이터 로딩 중..." />}
+      {loading && <Loading category="비교" />}
 
       {/* 개정 이력 */}
       {lawId && !loading && history && (

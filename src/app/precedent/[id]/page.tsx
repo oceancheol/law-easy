@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Loading from "@/components/ui/Loading";
@@ -30,22 +31,22 @@ export default function PrecedentDetailPage() {
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <p className="text-4xl mb-4">⚠️</p>
         <p className="text-[var(--text-muted)]">판례 정보를 불러올 수 없습니다.</p>
-        <a href="/precedent" className="text-[var(--primary)] text-sm mt-4 inline-block">
+        <Link href="/precedent" className="text-[var(--primary)] text-sm mt-4 inline-block">
           ← 판례 검색으로 돌아가기
-        </a>
+        </Link>
       </div>
     );
   }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <a href="/precedent" className="text-sm text-[var(--primary)] mb-6 inline-block">
+      <Link href="/precedent" className="text-sm text-[var(--primary)] mb-6 inline-block">
         ← 판례 검색으로 돌아가기
-      </a>
+      </Link>
 
       <Card className="mb-6">
         <div className="flex items-center gap-2 mb-3">
-          <Badge label={prec.court} variant="court" />
+          <Badge label={prec.court} />
           <span className="text-sm text-[var(--text-muted)]">{prec.caseNumber}</span>
         </div>
         <h1

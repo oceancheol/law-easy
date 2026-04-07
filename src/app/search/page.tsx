@@ -9,6 +9,7 @@ import Loading from "@/components/ui/Loading";
 import Pagination from "@/components/ui/Pagination";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
 import { formatDate, truncate } from "@/lib/utils/format";
+import { EASTER_EGGS } from "@/lib/funData";
 import type { LawSearchResult } from "@/types/law";
 
 interface SearchData {
@@ -83,15 +84,19 @@ function SearchContent() {
 
   useEffect(() => {
     if (!query) return;
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetching 로딩 표시
     setLoading(true);
     fetch(`/api/search?q=${encodeURIComponent(query)}&page=${page}`)
       .then((res) => res.json())
       .then((data: SearchData) => {
+        if (cancelled) return;
         setResults(data.data || []);
         setTotal(data.meta?.total || 0);
       })
-      .catch(() => setResults([]))
-      .finally(() => setLoading(false));
+      .catch(() => { if (!cancelled) setResults([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [query, page]);
 
   function handleSearch(newQuery: string) {
@@ -115,7 +120,17 @@ function SearchContent() {
         </p>
       )}
 
-      {loading && <Loading text="법령 검색 중..." />}
+      {/* 이스터에그 */}
+      {query && EASTER_EGGS[query.toLowerCase()] && (
+        <div className="mb-4 p-4 rounded-xl border border-[var(--primary-light)] bg-[var(--primary-light)]" style={{ background: "var(--primary-light)" }}>
+          <p className="text-sm text-[var(--primary)]">
+            <span className="text-lg mr-2">{EASTER_EGGS[query.toLowerCase()].emoji}</span>
+            {EASTER_EGGS[query.toLowerCase()].message}
+          </p>
+        </div>
+      )}
+
+      {loading && <Loading category="법령" />}
 
       {!loading && results.length === 0 && query && (
         <div className="text-center py-16">
@@ -167,32 +182,31 @@ function SearchContent() {
             <Card
               key={law.id}
               hoverable
+              variant="law"
               onClick={() => router.push(`/law/${law.lawId || law.id}`)}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge label={law.lawType} />
-                    <h3 className="text-lg font-semibold text-[var(--foreground)]">
-                      {law.lawName}
-                    </h3>
-                  </div>
-                  <div className="flex flex-wrap gap-3 text-sm text-[var(--text-muted)]">
-                    {law.ministry && <span>소관: {law.ministry}</span>}
-                    {law.enforcementDate && (
-                      <span>시행: {formatDate(law.enforcementDate)}</span>
-                    )}
-                    {law.promulgationDate && (
-                      <span>공포: {formatDate(law.promulgationDate)}</span>
-                    )}
-                  </div>
-                  {law.summary && (
-                    <p className="mt-2 text-sm text-[var(--text-muted)]">
-                      {truncate(law.summary, 150)}
-                    </p>
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <Badge label={law.lawType} />
+                  <h3 className="text-base sm:text-lg font-semibold text-[var(--foreground)]">
+                    {law.lawName}
+                  </h3>
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs sm:text-sm text-[var(--text-muted)]">
+                  {law.ministry && <span>소관: {law.ministry}</span>}
+                  {law.enforcementDate && (
+                    <span>시행: {formatDate(law.enforcementDate)}</span>
+                  )}
+                  {law.promulgationDate && (
+                    <span>공포: {formatDate(law.promulgationDate)}</span>
                   )}
                 </div>
-                <span className="text-[var(--primary)] text-sm shrink-0">
+                {law.summary && (
+                  <p className="mt-2 text-sm text-[var(--text-muted)] line-clamp-2">
+                    {truncate(law.summary, 150)}
+                  </p>
+                )}
+                <span className="text-[var(--primary)] text-xs sm:text-sm mt-2 inline-block">
                   상세보기 →
                 </span>
               </div>

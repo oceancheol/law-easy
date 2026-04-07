@@ -36,16 +36,20 @@ function PrecedentContent() {
 
   useEffect(() => {
     if (!query) return;
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetching 로딩 표시
     setLoading(true);
     const courtParam = court !== "전체" ? `&court=${encodeURIComponent(court)}` : "";
     fetch(`/api/precedent?q=${encodeURIComponent(query)}&page=${page}${courtParam}`)
       .then((res) => res.json())
       .then((data: PrecedentData) => {
+        if (cancelled) return;
         setResults(data.data || []);
         setTotal(data.meta?.total || 0);
       })
-      .catch(() => setResults([]))
-      .finally(() => setLoading(false));
+      .catch(() => { if (!cancelled) setResults([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [query, page, court]);
 
   function handleSearch(newQuery: string) {
@@ -93,7 +97,7 @@ function PrecedentContent() {
         </p>
       )}
 
-      {loading && <Loading text="판례 검색 중..." />}
+      {loading && <Loading category="판례" />}
 
       {!loading && results.length === 0 && query && (
         <div className="text-center py-16">
@@ -119,32 +123,31 @@ function PrecedentContent() {
             <Card
               key={prec.id}
               hoverable
+              variant="law"
               onClick={() => router.push(`/precedent/${prec.id}`)}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge label={prec.court} variant="court" />
-                    <span className="text-xs text-[var(--text-muted)]">
-                      {prec.caseNumber}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-semibold text-[var(--foreground)] mb-1">
-                    {prec.caseName}
-                  </h3>
-                  <div className="flex flex-wrap gap-3 text-sm text-[var(--text-muted)] mb-2">
-                    {prec.judgmentDate && (
-                      <span>선고일: {formatDate(prec.judgmentDate)}</span>
-                    )}
-                    {prec.caseType && <span>{prec.caseType}</span>}
-                  </div>
-                  {prec.summary && (
-                    <p className="text-sm text-[var(--text-muted)] leading-relaxed">
-                      {truncate(prec.summary, 200)}
-                    </p>
-                  )}
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <Badge label={prec.court} />
+                  <span className="text-xs text-[var(--text-muted)]">
+                    {prec.caseNumber}
+                  </span>
                 </div>
-                <span className="text-[var(--primary)] text-sm shrink-0">
+                <h3 className="text-base sm:text-lg font-semibold text-[var(--foreground)] mb-1">
+                  {prec.caseName}
+                </h3>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs sm:text-sm text-[var(--text-muted)] mb-2">
+                  {prec.judgmentDate && (
+                    <span>선고일: {formatDate(prec.judgmentDate)}</span>
+                  )}
+                  {prec.caseType && <span>{prec.caseType}</span>}
+                </div>
+                {prec.summary && (
+                  <p className="text-sm text-[var(--text-muted)] leading-relaxed line-clamp-3">
+                    {truncate(prec.summary, 200)}
+                  </p>
+                )}
+                <span className="text-[var(--primary)] text-xs sm:text-sm mt-2 inline-block">
                   상세보기 →
                 </span>
               </div>

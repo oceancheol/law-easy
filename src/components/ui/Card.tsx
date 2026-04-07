@@ -5,6 +5,7 @@ interface CardProps {
   className?: string;
   onClick?: () => void;
   hoverable?: boolean;
+  variant?: "default" | "law";
 }
 
 export default function Card({
@@ -12,15 +13,16 @@ export default function Card({
   className = "",
   onClick,
   hoverable = false,
+  variant = "default",
 }: CardProps) {
+  const base = "card";
+  const hoverClass = hoverable ? "card-hoverable cursor-pointer" : "";
+  const variantClass = variant === "law" ? "law-card" : "";
+
   return (
     <div
       onClick={onClick}
-      className={`bg-[var(--card-bg)] rounded-xl border border-[var(--border)] p-5 shadow-sm ${
-        hoverable
-          ? "cursor-pointer hover:shadow-md hover:border-[var(--primary)] transition-all"
-          : ""
-      } ${className}`}
+      className={`${base} ${hoverClass} ${variantClass} ${className}`}
     >
       {children}
     </div>

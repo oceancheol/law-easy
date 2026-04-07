@@ -1,16 +1,26 @@
 @import "tailwindcss";
 
+/* === DESIGN.md: Color Palette & Roles === */
 :root {
   --background: #F5F0EB;
   --foreground: #3E2C1E;
   --text-muted: #6B7B8D;
   --primary: #2B4C7E;
   --primary-hover: #1A3A5C;
+  --primary-light: #E8EEF5;
   --accent-red: #C0392B;
   --accent-green: #27AE60;
   --accent-yellow: #F39C12;
   --card-bg: #FFFFFF;
   --border: #D5CFC7;
+  --border-light: #E8E3DC;
+  --muted-bg: #FAF8F5;
+
+  /* Shadows (DESIGN.md Level 1~3) */
+  --shadow-sm: 0 1px 3px rgba(62, 44, 30, 0.08);
+  --shadow-md: 0 4px 12px rgba(62, 44, 30, 0.12);
+  --shadow-lg: 0 8px 24px rgba(62, 44, 30, 0.16);
+  --shadow-focus: 0 0 0 3px rgba(43, 76, 126, 0.2);
 }
 
 @theme inline {
@@ -19,49 +29,212 @@
   --color-muted: var(--text-muted);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
   --color-accent-red: var(--accent-red);
   --color-accent-green: var(--accent-green);
   --color-accent-yellow: var(--accent-yellow);
   --color-card: var(--card-bg);
   --color-border: var(--border);
+  --color-border-light: var(--border-light);
+  --color-muted-bg: var(--muted-bg);
 }
 
+/* === DESIGN.md: Typography === */
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-serif), serif;
+  font-family: var(--font-serif), 'Noto Serif KR', Georgia, serif;
 }
 
+/* === DESIGN.md: Component Stylings === */
+
+/* Card base */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  transition: all 200ms ease;
+}
+
+.card-hoverable:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary);
+}
+
+/* Law result card: left accent border on hover */
+.law-card {
+  border-left: 4px solid transparent;
+  transition: all 200ms ease;
+}
+
+.law-card:hover {
+  border-left-color: var(--primary);
+  box-shadow: var(--shadow-md);
+}
+
+/* Badge variants */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.badge-law { background: var(--primary-light); color: var(--primary); }
+.badge-decree { background: #E8F5E9; color: #27AE60; }
+.badge-rule { background: #FFF3E0; color: #E67E22; }
+.badge-supreme { background: var(--primary-light); color: var(--primary-hover); }
+.badge-constitutional { background: #FCE4EC; color: var(--accent-red); }
+
+/* Focus ring */
+input:focus, button:focus-visible, a:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* Accordion (법조문) */
+details > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+details > summary::before {
+  content: "▶";
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 10px;
+  transition: transform 200ms ease;
+  color: var(--text-muted);
+}
+
+details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+/* Article text */
+.article-text {
+  font-family: 'D2Coding', monospace;
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--foreground);
+}
+
+/* Diff highlights (신구대조) */
 .highlight-added {
-  background-color: rgba(39, 174, 96, 0.2);
+  background-color: rgba(39, 174, 96, 0.15);
   border-left: 3px solid var(--accent-green);
-  padding-left: 8px;
+  padding: 4px 8px;
 }
 
 .highlight-removed {
-  background-color: rgba(192, 57, 43, 0.2);
+  background-color: rgba(192, 57, 43, 0.15);
   border-left: 3px solid var(--accent-red);
-  padding-left: 8px;
+  padding: 4px 8px;
   text-decoration: line-through;
 }
 
 .highlight-modified {
-  background-color: rgba(243, 156, 18, 0.2);
+  background-color: rgba(243, 156, 18, 0.15);
   border-left: 3px solid var(--accent-yellow);
-  padding-left: 8px;
+  padding: 4px 8px;
+}
+
+/* Keyword pill */
+.keyword-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  font-size: 14px;
+  color: var(--text-muted);
+  transition: all 150ms ease;
+}
+
+.keyword-pill:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Scrollbar hide utility */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile touch optimization */
+@media (max-width: 639px) {
+  /* 최소 터치 타겟 44px */
+  .keyword-pill {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+
+  /* 카드 패딩 줄이기 */
+  .card {
+    padding: 16px;
+    border-radius: 10px;
+  }
+
+  /* 검색 결과 카드 간격 */
+  .law-card {
+    border-left-width: 3px;
+  }
+}
+
+/* 터치 디바이스에서 hover 효과 제거 (불필요한 sticky hover 방지) */
+@media (hover: none) {
+  .card-hoverable:hover {
+    box-shadow: var(--shadow-sm);
+    border-color: var(--border);
+  }
+  .law-card:hover {
+    border-left-color: transparent;
+    box-shadow: var(--shadow-sm);
+  }
+  .card-hoverable:active {
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary);
+  }
+  .law-card:active {
+    border-left-color: var(--primary);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 300ms ease-out;
 }
 
 /* Print styles */
 @media print {
-  header, footer, nav, .print\:hidden {
+  header, footer, nav, .print\:hidden, .print-hide {
     display: none !important;
   }
 
-  /* 인쇄 시 법령 내용 영역만 표시 */
   body {
     background: white !important;
     color: black !important;
@@ -72,12 +245,6 @@ h1, h2, h3, h4, h5, h6 {
     padding: 0 !important;
   }
 
-  /* print-area 외의 요소 숨김 */
-  .print-hide {
-    display: none !important;
-  }
-
-  /* print-area 내 details 자동 펼침 */
   .print-area details {
     display: block !important;
   }
@@ -88,6 +255,9 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: 600;
   }
   .print-area details > summary::-webkit-details-marker {
+    display: none;
+  }
+  .print-area details > summary::before {
     display: none;
   }
   .print-area details > div {
@@ -103,17 +273,11 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: none !important;
   }
 
-  a {
-    color: black;
-    text-decoration: none;
-  }
+  a { color: black; text-decoration: none; }
 
-  /* 카드 테두리 제거 */
   .print-area [class*="border"] {
     border-color: #ddd !important;
   }
 
-  @page {
-    margin: 1.5cm 2cm;
-  }
+  @page { margin: 1.5cm 2cm; }
 }

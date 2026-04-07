@@ -17,7 +17,18 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const query = resolveAbbreviation(rawQuery);
-  const result = await searchLaws({ query, page, size });
-  return NextResponse.json(result);
+  try {
+    const query = resolveAbbreviation(rawQuery);
+    const result = await searchLaws({ query, page, size });
+    return NextResponse.json(result);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[search/route] Error:", message);
+    return NextResponse.json({
+      success: false,
+      data: [],
+      error: message,
+      meta: { total: 0, page: 1, size: 20 },
+    }, { status: 500 });
+  }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 
 const HISTORY_KEY = "law-easy-search-history";
 const RECENT_LAWS_KEY = "law-easy-recent-laws";
@@ -14,13 +14,18 @@ interface RecentLaw {
   visitedAt: string;
 }
 
-export function useSearchHistory() {
-  const [history, setHistory] = useState<string[]>([]);
-
-  useEffect(() => {
+function getStoredHistory(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
     const stored = localStorage.getItem(HISTORY_KEY);
-    if (stored) setHistory(JSON.parse(stored));
-  }, []);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function useSearchHistory() {
+  const [history, setHistory] = useState<string[]>(getStoredHistory);
 
   const addHistory = useCallback((query: string) => {
     setHistory((prev) => {
@@ -39,13 +44,18 @@ export function useSearchHistory() {
   return { history, addHistory, clearHistory };
 }
 
-export function useRecentLaws() {
-  const [recentLaws, setRecentLaws] = useState<RecentLaw[]>([]);
-
-  useEffect(() => {
+function getStoredRecentLaws(): RecentLaw[] {
+  if (typeof window === "undefined") return [];
+  try {
     const stored = localStorage.getItem(RECENT_LAWS_KEY);
-    if (stored) setRecentLaws(JSON.parse(stored));
-  }, []);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function useRecentLaws() {
+  const [recentLaws, setRecentLaws] = useState<RecentLaw[]>(getStoredRecentLaws);
 
   const addRecentLaw = useCallback((law: Omit<RecentLaw, "visitedAt">) => {
     setRecentLaws((prev) => {

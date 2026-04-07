@@ -21,6 +21,12 @@ const POPULAR_KEYWORDS = [
 
 const FEATURES = [
   {
+    icon: "🔮",
+    title: "상황분석",
+    description: "내 상황을 설명하면 관련 법령과 판례를 그래프로 분석",
+    href: "/situation",
+  },
+  {
     icon: "📘",
     title: "법령 검색",
     description: "법률·시행령·시행규칙을 키워드와 약칭으로 빠르게 검색",
@@ -219,7 +225,7 @@ export default function HomePage() {
           <p className="text-center text-[var(--text-muted)] mb-10">
             LawEasy에서 제공하는 핵심 기능을 확인하세요
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
             {FEATURES.map((feature) => (
               <a
                 key={feature.title}
